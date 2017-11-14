@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 	"net/url"
+	"errors"
 )
 
 const apiUrl = "http://data.gov.ru/api/json/dataset/7708660670-proizvcalendar/version/20151123T183036/content?"
@@ -72,6 +73,9 @@ func (ph *PublicHoliday) WorkingDays(date time.Time) (days int, err error) {
 	}
 	ph.mu.RLock()
 	defer ph.mu.RUnlock()
+	if _, ok := ph.workingDays[date.Year()]; !ok {
+		return 0, errors.New("there is no data for this year")
+	}
 	return int(ph.workingDays[date.Year()]), nil
 }
 
@@ -82,6 +86,9 @@ func (ph *PublicHoliday) Holidays(date time.Time) (days int, err error) {
 	}
 	ph.mu.RLock()
 	defer ph.mu.RUnlock()
+	if _, ok := ph.holidays[date.Year()]; !ok {
+		return 0, errors.New("there is no data for this year")
+	}
 	return int(ph.holidays[date.Year()]), nil
 }
 
@@ -92,6 +99,9 @@ func (ph *PublicHoliday) WorkingHours24hWeek(date time.Time) (hour float64, err 
 	}
 	ph.mu.RLock()
 	defer ph.mu.RUnlock()
+	if _, ok := ph.workingHours24hWeek[date.Year()]; !ok {
+		return 0, errors.New("there is no data for this year")
+	}
 	return ph.workingHours24hWeek[date.Year()], nil
 }
 
@@ -102,6 +112,9 @@ func (ph *PublicHoliday) WorkingHours36hWeek(date time.Time) (hour float64, err 
 	}
 	ph.mu.RLock()
 	defer ph.mu.RUnlock()
+	if _, ok := ph.workingHours36hWeek[date.Year()]; !ok {
+		return 0, errors.New("there is no data for this year")
+	}
 	return ph.workingHours36hWeek[date.Year()], nil
 }
 
@@ -112,6 +125,9 @@ func (ph *PublicHoliday) WorkingHours40hWeek(date time.Time) (hour float64, err 
 	}
 	ph.mu.RLock()
 	defer ph.mu.RUnlock()
+	if _, ok := ph.workingHours40hWeek[date.Year()]; !ok {
+		return 0, errors.New("there is no data for this year")
+	}
 	return ph.workingHours40hWeek[date.Year()], nil
 }
 
@@ -122,6 +138,9 @@ func (ph *PublicHoliday) IsWeekend(date time.Time) (bool, error) {
 	}
 	ph.mu.RLock()
 	defer ph.mu.RUnlock()
+	if _, ok := ph.dataWeekend[date.Year()]; !ok {
+		return false, errors.New("there is no data for this year")
+	}
 	if weekend, ok := ph.dataWeekend[date.Year()][int(date.Month())]; ok {
 		for _, d := range weekend {
 			if date.Day() == d {
@@ -139,6 +158,9 @@ func (ph *PublicHoliday) IsShortDay(date time.Time) (bool, error) {
 	}
 	ph.mu.RLock()
 	defer ph.mu.RUnlock()
+	if _, ok := ph.dataShortday[date.Year()]; !ok {
+		return false, errors.New("there is no data for this year")
+	}
 	if shortday, ok := ph.dataShortday[date.Year()][int(date.Month())]; ok {
 		for _, d := range shortday {
 			if date.Day() == d {
