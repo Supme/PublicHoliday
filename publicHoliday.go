@@ -1,14 +1,14 @@
 package publicHoliday
 
 import (
-	"time"
-	"net/http"
 	"encoding/json"
+	"errors"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
-	"net/url"
-	"errors"
+	"time"
 )
 
 const apiUrl = "http://data.gov.ru/api/json/dataset/7708660670-proizvcalendar/version/20151123T183036/content?"
@@ -17,7 +17,7 @@ type PublicHoliday struct {
 	token string
 
 	lastUpdate time.Time
-	cacheTime time.Duration
+	cacheTime  time.Duration
 
 	// data is map[year]map[month][]days
 	dataWeekend  map[int]map[int][]int
@@ -209,8 +209,8 @@ func (ph *PublicHoliday) Update() error {
 		return err
 	}
 
-	ph.workingDays =  map[int]int64{}
-	ph.holidays =  map[int]int64{}
+	ph.workingDays = map[int]int64{}
+	ph.holidays = map[int]int64{}
 	ph.workingHours24hWeek = map[int]float64{}
 	ph.workingHours36hWeek = map[int]float64{}
 	ph.workingHours40hWeek = map[int]float64{}
@@ -232,17 +232,17 @@ func (ph *PublicHoliday) Update() error {
 			return err
 		}
 
-		ph.workingHours24hWeek[year], err = strconv.ParseFloat(prcal[i].WorkingHours24hWeek,16)
+		ph.workingHours24hWeek[year], err = strconv.ParseFloat(prcal[i].WorkingHours24hWeek, 16)
 		if err != nil {
 			return err
 		}
 
-		ph.workingHours36hWeek[year], err = strconv.ParseFloat(prcal[i].WorkingHours36hWeek,16)
+		ph.workingHours36hWeek[year], err = strconv.ParseFloat(prcal[i].WorkingHours36hWeek, 16)
 		if err != nil {
 			return err
 		}
 
-		ph.workingHours40hWeek[year], err = strconv.ParseFloat(prcal[i].WorkingHours40hWeek,16)
+		ph.workingHours40hWeek[year], err = strconv.ParseFloat(prcal[i].WorkingHours40hWeek, 16)
 		if err != nil {
 			return err
 		}
@@ -305,7 +305,7 @@ func (ph *PublicHoliday) Update() error {
 	return nil
 }
 
-func convDays(days string) (weekend []int, shortday[]int, err error) {
+func convDays(days string) (weekend []int, shortday []int, err error) {
 	daysStr := strings.Split(days, ",")
 	for d := range daysStr {
 		var n int64
