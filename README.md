@@ -1,3 +1,4 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/Supme/PublicHoliday)](https://goreportcard.com/report/github.com/Supme/PublicHoliday)
 # PublicHoliday
 Определение
 - праздничных/выходных дней
