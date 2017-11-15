@@ -15,22 +15,21 @@ const apiURL = "http://data.gov.ru/api/json/dataset/7708660670-proizvcalendar/ve
 
 // PublicHoliday contains internal data
 type PublicHoliday struct {
-	token string
-
+	token      string
 	lastUpdate time.Time
 	cacheTime  time.Duration
+	data       map[int]publicHolidayData // data is map[year]
+	mu         sync.RWMutex
+}
 
-	// data is map[year]map[month][]days
-	dataWeekend  map[int]map[int][]int
-	dataShortday map[int]map[int][]int
-
-	workingDays         map[int]int64
-	holidays            map[int]int64
-	workingHours40hWeek map[int]float64
-	workingHours36hWeek map[int]float64
-	workingHours24hWeek map[int]float64
-
-	mu sync.RWMutex
+type publicHolidayData struct {
+	weekend             map[int][]int // map[month][]days
+	shortday            map[int][]int // map[month][]days
+	workdays            int64
+	holidays            int64
+	workingHours40hWeek float64
+	workingHours36hWeek float64
+	workingHours24hWeek float64
 }
 
 type proizvcalendar struct {
@@ -77,10 +76,10 @@ func (ph *PublicHoliday) WorkingDays(date time.Time) (days int, err error) {
 	}
 	ph.mu.RLock()
 	defer ph.mu.RUnlock()
-	if _, ok := ph.workingDays[date.Year()]; !ok {
+	if _, ok := ph.data[date.Year()]; !ok {
 		return 0, errors.New("there is no data for this year")
 	}
-	return int(ph.workingDays[date.Year()]), nil
+	return int(ph.data[date.Year()].workdays), nil
 }
 
 // Holidays returns the number of holidays in the year received at the entrance
@@ -91,10 +90,10 @@ func (ph *PublicHoliday) Holidays(date time.Time) (days int, err error) {
 	}
 	ph.mu.RLock()
 	defer ph.mu.RUnlock()
-	if _, ok := ph.holidays[date.Year()]; !ok {
+	if _, ok := ph.data[date.Year()]; !ok {
 		return 0, errors.New("there is no data for this year")
 	}
-	return int(ph.holidays[date.Year()]), nil
+	return int(ph.data[date.Year()].holidays), nil
 }
 
 // WorkingHours24hWeek returns the number of working hours at 24 hour week in the year received at the entrance
@@ -105,10 +104,10 @@ func (ph *PublicHoliday) WorkingHours24hWeek(date time.Time) (hour float64, err 
 	}
 	ph.mu.RLock()
 	defer ph.mu.RUnlock()
-	if _, ok := ph.workingHours24hWeek[date.Year()]; !ok {
+	if _, ok := ph.data[date.Year()]; !ok {
 		return 0, errors.New("there is no data for this year")
 	}
-	return ph.workingHours24hWeek[date.Year()], nil
+	return ph.data[date.Year()].workingHours24hWeek, nil
 }
 
 // WorkingHours36hWeek returns the number of working hours at 36 hour week in the year received at the entrance
@@ -119,10 +118,10 @@ func (ph *PublicHoliday) WorkingHours36hWeek(date time.Time) (hour float64, err 
 	}
 	ph.mu.RLock()
 	defer ph.mu.RUnlock()
-	if _, ok := ph.workingHours36hWeek[date.Year()]; !ok {
+	if _, ok := ph.data[date.Year()]; !ok {
 		return 0, errors.New("there is no data for this year")
 	}
-	return ph.workingHours36hWeek[date.Year()], nil
+	return ph.data[date.Year()].workingHours36hWeek, nil
 }
 
 // WorkingHours40hWeek returns the number of working hours at 40 hour week in the year received at the entrance
@@ -133,10 +132,10 @@ func (ph *PublicHoliday) WorkingHours40hWeek(date time.Time) (hour float64, err 
 	}
 	ph.mu.RLock()
 	defer ph.mu.RUnlock()
-	if _, ok := ph.workingHours40hWeek[date.Year()]; !ok {
+	if _, ok := ph.data[date.Year()]; !ok {
 		return 0, errors.New("there is no data for this year")
 	}
-	return ph.workingHours40hWeek[date.Year()], nil
+	return ph.data[date.Year()].workingHours40hWeek, nil
 }
 
 // IsWeekend returns whether it is true that the weekend
@@ -147,10 +146,10 @@ func (ph *PublicHoliday) IsWeekend(date time.Time) (bool, error) {
 	}
 	ph.mu.RLock()
 	defer ph.mu.RUnlock()
-	if _, ok := ph.dataWeekend[date.Year()]; !ok {
+	if _, ok := ph.data[date.Year()]; !ok {
 		return false, errors.New("there is no data for this year")
 	}
-	if weekend, ok := ph.dataWeekend[date.Year()][int(date.Month())]; ok {
+	if weekend, ok := ph.data[date.Year()].weekend[int(date.Month())]; ok {
 		for _, d := range weekend {
 			if date.Day() == d {
 				return true, nil
@@ -168,10 +167,10 @@ func (ph *PublicHoliday) IsShortDay(date time.Time) (bool, error) {
 	}
 	ph.mu.RLock()
 	defer ph.mu.RUnlock()
-	if _, ok := ph.dataShortday[date.Year()]; !ok {
+	if _, ok := ph.data[date.Year()]; !ok {
 		return false, errors.New("there is no data for this year")
 	}
-	if shortday, ok := ph.dataShortday[date.Year()][int(date.Month())]; ok {
+	if shortday, ok := ph.data[date.Year()].shortday[int(date.Month())]; ok {
 		for _, d := range shortday {
 			if date.Day() == d {
 				return true, nil
@@ -220,98 +219,65 @@ func (ph *PublicHoliday) Update() error {
 		return err
 	}
 
-	ph.workingDays = map[int]int64{}
-	ph.holidays = map[int]int64{}
-	ph.workingHours24hWeek = map[int]float64{}
-	ph.workingHours36hWeek = map[int]float64{}
-	ph.workingHours40hWeek = map[int]float64{}
-	ph.dataWeekend = map[int]map[int][]int{}
-	ph.dataShortday = map[int]map[int][]int{}
+	tmphs := make(map[int]publicHolidayData)
+	var errs []error
 	for i := range prcal {
 		year, err := strconv.Atoi(prcal[i].Year)
 		if err != nil {
-			return err
+			errs = append(errs, err)
+			continue
 		}
 
-		ph.workingDays[year], err = strconv.ParseInt(prcal[i].WorkingDays, 10, 16)
-		if err != nil {
-			return err
-		}
+		var tmph publicHolidayData
 
-		ph.holidays[year], err = strconv.ParseInt(prcal[i].Holidays, 10, 16)
-		if err != nil {
-			return err
-		}
+		tmph.workdays, err = strconv.ParseInt(prcal[i].WorkingDays, 10, 16)
+		errs = append(errs, err)
+		tmph.holidays, err = strconv.ParseInt(prcal[i].Holidays, 10, 16)
+		errs = append(errs, err)
+		tmph.workingHours24hWeek, err = strconv.ParseFloat(prcal[i].WorkingHours24hWeek, 16)
+		errs = append(errs, err)
+		tmph.workingHours36hWeek, err = strconv.ParseFloat(prcal[i].WorkingHours36hWeek, 16)
+		errs = append(errs, err)
+		tmph.workingHours40hWeek, err = strconv.ParseFloat(prcal[i].WorkingHours40hWeek, 16)
+		errs = append(errs, err)
 
-		ph.workingHours24hWeek[year], err = strconv.ParseFloat(prcal[i].WorkingHours24hWeek, 16)
-		if err != nil {
-			return err
-		}
+		tmph.weekend = map[int][]int{}
+		tmph.shortday = map[int][]int{}
+		tmph.weekend[1], tmph.shortday[1], err = convDays(prcal[i].Jan)
+		errs = append(errs, err)
+		tmph.weekend[2], tmph.shortday[2], err = convDays(prcal[i].Feb)
+		errs = append(errs, err)
+		tmph.weekend[3], tmph.shortday[3], err = convDays(prcal[i].Mar)
+		errs = append(errs, err)
+		tmph.weekend[4], tmph.shortday[4], err = convDays(prcal[i].Apr)
+		errs = append(errs, err)
+		tmph.weekend[5], tmph.shortday[5], err = convDays(prcal[i].May)
+		errs = append(errs, err)
+		tmph.weekend[6], tmph.shortday[6], err = convDays(prcal[i].Jun)
+		errs = append(errs, err)
+		tmph.weekend[7], tmph.shortday[7], err = convDays(prcal[i].Jul)
+		errs = append(errs, err)
+		tmph.weekend[8], tmph.shortday[8], err = convDays(prcal[i].Aug)
+		errs = append(errs, err)
+		tmph.weekend[9], tmph.shortday[9], err = convDays(prcal[i].Sep)
+		errs = append(errs, err)
+		tmph.weekend[10], tmph.shortday[10], err = convDays(prcal[i].Oct)
+		errs = append(errs, err)
+		tmph.weekend[11], tmph.shortday[11], err = convDays(prcal[i].Nov)
+		errs = append(errs, err)
+		tmph.weekend[12], tmph.shortday[12], err = convDays(prcal[i].Dec)
+		errs = append(errs, err)
 
-		ph.workingHours36hWeek[year], err = strconv.ParseFloat(prcal[i].WorkingHours36hWeek, 16)
-		if err != nil {
-			return err
-		}
-
-		ph.workingHours40hWeek[year], err = strconv.ParseFloat(prcal[i].WorkingHours40hWeek, 16)
-		if err != nil {
-			return err
-		}
-
-		ph.dataWeekend[year] = map[int][]int{}
-		ph.dataShortday[year] = map[int][]int{}
-
-		ph.dataWeekend[year][1], ph.dataShortday[year][1], err = convDays(prcal[i].Jan)
-		if err != nil {
-			return err
-		}
-		ph.dataWeekend[year][2], ph.dataShortday[year][2], err = convDays(prcal[i].Feb)
-		if err != nil {
-			return err
-		}
-		ph.dataWeekend[year][3], ph.dataShortday[year][3], err = convDays(prcal[i].Mar)
-		if err != nil {
-			return err
-		}
-		ph.dataWeekend[year][4], ph.dataShortday[year][4], err = convDays(prcal[i].Apr)
-		if err != nil {
-			return err
-		}
-		ph.dataWeekend[year][5], ph.dataShortday[year][5], err = convDays(prcal[i].May)
-		if err != nil {
-			return err
-		}
-		ph.dataWeekend[year][6], ph.dataShortday[year][6], err = convDays(prcal[i].Jun)
-		if err != nil {
-			return err
-		}
-		ph.dataWeekend[year][7], ph.dataShortday[year][7], err = convDays(prcal[i].Jul)
-		if err != nil {
-			return err
-		}
-		ph.dataWeekend[year][8], ph.dataShortday[year][8], err = convDays(prcal[i].Aug)
-		if err != nil {
-			return err
-		}
-		ph.dataWeekend[year][9], ph.dataShortday[year][9], err = convDays(prcal[i].Sep)
-		if err != nil {
-			return err
-		}
-		ph.dataWeekend[year][10], ph.dataShortday[year][10], err = convDays(prcal[i].Oct)
-		if err != nil {
-			return err
-		}
-		ph.dataWeekend[year][11], ph.dataShortday[year][11], err = convDays(prcal[i].Nov)
-		if err != nil {
-			return err
-		}
-		ph.dataWeekend[year][12], ph.dataShortday[year][12], err = convDays(prcal[i].Dec)
-		if err != nil {
-			return err
-		}
-
+		tmphs[year] = tmph
 	}
 
+	for e := range errs {
+		if errs[e] != nil {
+			return errs[e] // ToDo join all errors
+		}
+	}
+
+	ph.data = tmphs
 	ph.lastUpdate = time.Now()
 	return nil
 }
