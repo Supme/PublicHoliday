@@ -1,9 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"github.com/supme/PublicHoliday"
 	"time"
-	"fmt"
 )
 
 func main() {
@@ -17,15 +17,15 @@ func main() {
 
 	time.Sleep(time.Duration(time.Second * 2))
 
-	dw := dateFromString( "18.01.2004")
+	dw := dateFromString("18.01.2004")
 	// праздничный или выходной день?
-	rw, err :=ph.IsWeekend(dw)
+	rw, err := ph.IsWeekend(dw)
 	chkErr(err)
 	fmt.Println("Result weekend:", rw)
 
-	ds := dateFromString( "30.04.1999")
+	ds := dateFromString("30.04.1999")
 	// сокращённый предпраздничный?
-	rs, err :=ph.IsShortDay(ds)
+	rs, err := ph.IsShortDay(ds)
 	chkErr(err)
 	fmt.Println("Result shortday:", rs)
 
