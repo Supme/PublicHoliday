@@ -11,8 +11,9 @@ import (
 	"time"
 )
 
-const apiUrl = "http://data.gov.ru/api/json/dataset/7708660670-proizvcalendar/version/20151123T183036/content?"
+const apiURL = "http://data.gov.ru/api/json/dataset/7708660670-proizvcalendar/version/20151123T183036/content?"
 
+// PublicHoliday contains internal data
 type PublicHoliday struct {
 	token string
 
@@ -53,6 +54,7 @@ type proizvcalendar struct {
 	WorkingHours24hWeek string `json:"Количество рабочих часов при 24-часовой рабочей неделе"`
 }
 
+// New takes access token and return a prepared instance of PublicHoliday
 func New(accessToken string) *PublicHoliday {
 	ph := new(PublicHoliday)
 	ph.token = accessToken
@@ -60,12 +62,14 @@ func New(accessToken string) *PublicHoliday {
 	return ph
 }
 
+// SetCacheTime set the lifetime of the obtained data from the source
 func (ph *PublicHoliday) SetCacheTime(duration time.Duration) {
 	ph.mu.Lock()
 	defer ph.mu.Unlock()
 	ph.cacheTime = duration
 }
 
+// WorkingDays returns the number of working days in the year received at the entrance
 func (ph *PublicHoliday) WorkingDays(date time.Time) (days int, err error) {
 	err = ph.chkUpdate()
 	if err != nil {
@@ -79,6 +83,7 @@ func (ph *PublicHoliday) WorkingDays(date time.Time) (days int, err error) {
 	return int(ph.workingDays[date.Year()]), nil
 }
 
+// Holidays returns the number of holidays in the year received at the entrance
 func (ph *PublicHoliday) Holidays(date time.Time) (days int, err error) {
 	err = ph.chkUpdate()
 	if err != nil {
@@ -92,6 +97,7 @@ func (ph *PublicHoliday) Holidays(date time.Time) (days int, err error) {
 	return int(ph.holidays[date.Year()]), nil
 }
 
+// WorkingHours24hWeek returns the number of working hours at 24 hour week in the year received at the entrance
 func (ph *PublicHoliday) WorkingHours24hWeek(date time.Time) (hour float64, err error) {
 	err = ph.chkUpdate()
 	if err != nil {
@@ -105,6 +111,7 @@ func (ph *PublicHoliday) WorkingHours24hWeek(date time.Time) (hour float64, err 
 	return ph.workingHours24hWeek[date.Year()], nil
 }
 
+// WorkingHours36hWeek returns the number of working hours at 36 hour week in the year received at the entrance
 func (ph *PublicHoliday) WorkingHours36hWeek(date time.Time) (hour float64, err error) {
 	err = ph.chkUpdate()
 	if err != nil {
@@ -118,6 +125,7 @@ func (ph *PublicHoliday) WorkingHours36hWeek(date time.Time) (hour float64, err 
 	return ph.workingHours36hWeek[date.Year()], nil
 }
 
+// WorkingHours40hWeek returns the number of working hours at 40 hour week in the year received at the entrance
 func (ph *PublicHoliday) WorkingHours40hWeek(date time.Time) (hour float64, err error) {
 	err = ph.chkUpdate()
 	if err != nil {
@@ -131,6 +139,7 @@ func (ph *PublicHoliday) WorkingHours40hWeek(date time.Time) (hour float64, err 
 	return ph.workingHours40hWeek[date.Year()], nil
 }
 
+// IsWeekend returns whether it is true that the weekend
 func (ph *PublicHoliday) IsWeekend(date time.Time) (bool, error) {
 	err := ph.chkUpdate()
 	if err != nil {
@@ -151,6 +160,7 @@ func (ph *PublicHoliday) IsWeekend(date time.Time) (bool, error) {
 	return false, nil
 }
 
+// IsShortDay returns whether it is true that the short day
 func (ph *PublicHoliday) IsShortDay(date time.Time) (bool, error) {
 	err := ph.chkUpdate()
 	if err != nil {
@@ -181,6 +191,7 @@ func (ph *PublicHoliday) chkUpdate() error {
 	return nil
 }
 
+// Update manual update data from the source
 func (ph *PublicHoliday) Update() error {
 	ph.mu.Lock()
 	defer ph.mu.Unlock()
@@ -193,7 +204,7 @@ func (ph *PublicHoliday) Update() error {
 	}
 	params := url.Values{}
 	params.Add("access_token", ph.token)
-	r, err := client.Get(apiUrl + params.Encode())
+	r, err := client.Get(apiURL + params.Encode())
 	if err != nil {
 		return err
 	}
