@@ -286,7 +286,7 @@ func convDays(days string) (weekend []int, shortday []int, err error) {
 	daysStr := strings.Split(days, ",")
 	for d := range daysStr {
 		var n int64
-		if daysStr[d][len(daysStr[d])-1:] == "*" {
+		if daysStr[d][len(daysStr[d])-1:] == "*" || daysStr[d][len(daysStr[d])-1:] == "+" {
 			n, err = strconv.ParseInt(daysStr[d][:len(daysStr[d])-1], 10, 8)
 			if err != nil {
 				return
